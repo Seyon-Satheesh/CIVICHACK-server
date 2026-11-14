@@ -153,6 +153,21 @@ STORAGES = {
 # Origins allowed to call /api/ from a browser (Flutter web). Mobile apps don't need this.
 CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='*', cast=lambda x: [i.strip() for i in x.split(',')])
 
+# Text-message alerts (Twilio). Keys come from environment variables only, never from code.
+TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
+TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
+TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')                  # e.g. +16475550123
+TWILIO_MESSAGING_SERVICE_SID = config('TWILIO_MESSAGING_SERVICE_SID', default='')  # optional, used instead of the number
+TWILIO_WEBHOOK_URL = config('TWILIO_WEBHOOK_URL', default='')                    # optional, exact webhook URL for signature checks
+SMS_ALERTS_ENABLED = config('SMS_ALERTS_ENABLED', default=True, cast=bool)
+SMS_COOLDOWN_HOURS = config('SMS_COOLDOWN_HOURS', default=6, cast=int)            # max one "changed" text per proposal in this window
+
+# Push notifications to the Flutter app (Firebase Cloud Messaging). From environment variables only.
+FIREBASE_CREDENTIALS_JSON = config('FIREBASE_CREDENTIALS_JSON', default='')   # service-account JSON (raw or base64)
+FIREBASE_CREDENTIALS_FILE = config('FIREBASE_CREDENTIALS_FILE', default='')   # or a path to the JSON file
+PUSH_ALERTS_ENABLED = config('PUSH_ALERTS_ENABLED', default=True, cast=bool)
+ALERT_COOLDOWN_HOURS = config('ALERT_COOLDOWN_HOURS', default=6, cast=int)     # max one "changed" push per proposal in this window
+
 # Sign-in for the admin console
 LOGIN_URL = "admin_console:login"
 LOGIN_REDIRECT_URL = "admin_console:proposal_list"

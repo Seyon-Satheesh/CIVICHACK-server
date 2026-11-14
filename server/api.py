@@ -23,7 +23,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import (CommunityPost, Feedback, Follow, Municipality, Neighbourhood, Notification, Proposal,
+from .models import (DeviceToken, CommunityPost, Feedback, Follow, Municipality, Neighbourhood, Notification, Proposal,
                      ResidentProfile, SurveyResponse, Topic)
 
 TOKEN_SALT = "civicspeak.api"
@@ -464,6 +464,10 @@ def notifications(request):
             text = f"{n.proposal.title}: {n.update.title}"
         elif n.kind == Notification.Kind.IMPACT and n.impact:
             text = f"{n.proposal.title}: {n.impact.text}"
+        elif n.text:
+            text = n.text
+        elif n.kind == Notification.Kind.NEW and n.proposal:
+            text = f"New: {n.proposal.title}"
         else:
             text = n.proposal.title if n.proposal else ""
         items.append({"id": n.pk, "kind": n.kind, "text": text, "date": n.created_at.date().isoformat(),
@@ -481,3 +485,30 @@ def notifications(request):
 def notifications_read(request):
     request.resident.notifications.filter(read_at__isnull=True).update(read_at=timezone.now())
     return JsonResponse({"unread": 0})
+
+
+# ---------------------------------------------------------------- push notification devices
+
+@resident_required
+@require_http_methods(["POST"])
+def device_register(request):
+    """The app sends its Firebase token after sign-in (and whenever it changes)."""
+    data = body(request) or {}
+    token = (data.get("token") or "").strip()
+    platform = data.get("platform") or "android"
+    if not token or len(token) > 512:
+        return error("Missing device token.", field="token")
+    if platform not in DeviceToken.Platform.values:
+        platform = DeviceToken.Platform.ANDROID
+    # A phone belongs to whoever signed in on it last.
+    DeviceToken.objects.update_or_create(token=token, defaults={"resident": request.resident, "platform": platform, "is_active": True})
+    return JsonResponse({"registered": True})
+
+
+@resident_required
+@require_http_methods(["POST"])
+def device_unregister(request):
+    """Called on sign-out so the phone stops getting this resident's notifications."""
+    token = ((body(request) or {}).get("token") or "").strip()
+    DeviceToken.objects.filter(token=token, resident=request.resident).delete()
+    return JsonResponse({"registered": False})

@@ -20,6 +20,16 @@ services:
             ALLOWED_HOSTS: ${ALLOWED_HOSTS}
             CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
             DATABASE_URL: ${DATABASE_URL}
+            # Text-message alerts (Twilio). Leave empty to log texts instead of sending them.
+            TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+            TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+            TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+            TWILIO_MESSAGING_SERVICE_SID: ${TWILIO_MESSAGING_SERVICE_SID:-}
+            TWILIO_WEBHOOK_URL: ${TWILIO_WEBHOOK_URL:-}
+            SMS_ALERTS_ENABLED: ${SMS_ALERTS_ENABLED:-True}
+            # Push notifications to the Flutter app (Firebase service-account JSON, raw or base64)
+            FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+            PUSH_ALERTS_ENABLED: ${PUSH_ALERTS_ENABLED:-True}
    
 volumes:
     static_volume: {}

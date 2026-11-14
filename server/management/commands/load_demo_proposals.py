@@ -21,6 +21,9 @@ from server.models import (
 
 SLUG_PREFIX = "demo-"
 
+# Postal areas for the demo neighbourhoods, so text-message subscribers can be matched.
+DEMO_FSAS = {"Annex": ["M5R", "M5S"], "Junction": ["M6N", "M6P"]}
+
 DEMO = [
     {
         "slug": "demo-harbord-bike-lanes",
@@ -129,6 +132,9 @@ class Command(BaseCommand):
             if Proposal.objects.filter(municipality=muni, slug=d["slug"]).exists():
                 continue
             hood, _ = Neighbourhood.objects.get_or_create(municipality=muni, name=d["hood"])
+            if not hood.postal_fsas and d["hood"] in DEMO_FSAS:
+                hood.postal_fsas = DEMO_FSAS[d["hood"]]
+                hood.save(update_fields=["postal_fsas"])
             p = Proposal.objects.create(
                 municipality=muni, neighbourhood=hood, slug=d["slug"], title=d["title"], summary=d["summary"],
                 affected=d["affected"], address=d["address"], location=Point(*d["point"], srid=4326),

@@ -59,6 +59,10 @@ class Neighbourhood(models.Model):
     name = models.CharField(max_length=120)
     ward = models.CharField(max_length=40, blank=True)
     boundary = gis.MultiPolygonField(srid=4326, null=True, blank=True)
+    # Postal code areas (first 3 characters, e.g. "M5R") in this neighbourhood.
+    # Used to match text-message subscribers to proposals near them.
+    postal_fsas = ArrayField(models.CharField(max_length=3), default=list, blank=True,
+                             help_text="First 3 characters of postal codes in this neighbourhood, e.g. M5R, M5S")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["municipality", "name"], name="uniq_neighbourhood")]
@@ -458,6 +462,8 @@ class Notification(models.Model):
         IMPACT = "impact", "New impact"
         COMMUNITY = "community", "Community story"
         OPEN = "open", "Input is open near you"
+        NEW = "new", "New proposal that matches you"
+        CHANGED = "changed", "A proposal changed"
 
     resident = models.ForeignKey(ResidentProfile, on_delete=models.CASCADE, related_name="notifications")
     kind = models.CharField(max_length=10, choices=Kind.choices)
@@ -465,10 +471,12 @@ class Notification(models.Model):
     update = models.ForeignKey(StatusUpdate, on_delete=models.CASCADE, null=True, blank=True)
     impact = models.ForeignKey(Impact, on_delete=models.CASCADE, null=True, blank=True)
     post = models.ForeignKey(CommunityPost, on_delete=models.CASCADE, null=True, blank=True)
+    text = models.CharField(max_length=300, blank=True)       # what changed, for "new" and "changed" notifications
     created_at = models.DateTimeField(auto_now_add=True)
     read_at = models.DateTimeField(null=True, blank=True)
     sent_email_at = models.DateTimeField(null=True, blank=True)
     sent_sms_at = models.DateTimeField(null=True, blank=True)
+    sent_push_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -479,3 +487,73 @@ class Notification(models.Model):
             models.UniqueConstraint(fields=["resident", "kind", "impact"], condition=Q(impact__isnull=False), name="uniq_notif_impact"),
             models.UniqueConstraint(fields=["resident", "kind", "post"], condition=Q(post__isnull=False), name="uniq_notif_post"),
         ]
+
+
+# ---------------------------------------------------------------- text-message (SMS) subscribers
+
+class SmsSubscriber(TimeStamped):
+    """A resident who never uses the app: they sign up and get alerts by text message only (Twilio).
+    Privacy: only the phone number and the first 3 characters of the postal code are stored, never the address."""
+    class Step(models.TextChoices):
+        ADDRESS = "address", "Waiting for address"
+        TOPICS = "topics", "Waiting for topics"
+        AREA = "area", "Waiting for area"
+        DONE = "done", "Signed up"
+
+    class Area(models.TextChoices):
+        NEAR = "near", "Near me (my neighbourhood + city-wide)"
+        CITY = "city", "Whole city"
+
+    phone = models.CharField(max_length=20, unique=True)          # E.164, e.g. +14165551234
+    municipality = models.ForeignKey(Municipality, on_delete=models.CASCADE, related_name="sms_subscribers")
+    postal_fsa = models.CharField(max_length=3, blank=True, validators=[postal_fsa])
+    area = models.CharField(max_length=4, choices=Area.choices, default=Area.NEAR)
+    interests = models.ManyToManyField(Topic, blank=True, related_name="sms_subscribers")
+    step = models.CharField(max_length=8, choices=Step.choices, default=Step.ADDRESS)
+    is_active = models.BooleanField(default=True)                 # False after STOP
+    signed_up_at = models.DateTimeField(null=True, blank=True)    # set when sign-up is finished
+    opted_out_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["municipality", "is_active", "step"])]
+
+    def __str__(self):
+        return f"{self.phone[:-4]}****" if len(self.phone) > 4 else self.phone
+
+
+class SmsMessage(models.Model):
+    """Log of every text sent or received, for troubleshooting and to avoid texting people too often."""
+    class Direction(models.TextChoices):
+        IN = "in", "Received"
+        OUT = "out", "Sent"
+
+    subscriber = models.ForeignKey(SmsSubscriber, on_delete=models.CASCADE, null=True, blank=True, related_name="messages")
+    direction = models.CharField(max_length=3, choices=Direction.choices)
+    body = models.TextField()
+    proposal = models.ForeignKey(Proposal, on_delete=models.SET_NULL, null=True, blank=True)
+    twilio_sid = models.CharField(max_length=64, blank=True)
+    status = models.CharField(max_length=20, blank=True)          # queued, sent, failed, not_configured...
+    error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["subscriber", "proposal", "created_at"])]
+
+
+# ---------------------------------------------------------------- push notifications (Flutter app)
+
+class DeviceToken(TimeStamped):
+    """A phone that can receive push notifications (Firebase Cloud Messaging token) for a resident."""
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    resident = models.ForeignKey(ResidentProfile, on_delete=models.CASCADE, related_name="devices")
+    token = models.CharField(max_length=512, unique=True)
+    platform = models.CharField(max_length=8, choices=Platform.choices, default=Platform.ANDROID)
+    is_active = models.BooleanField(default=True)       # False when Firebase says the token is no longer valid
+
+    def __str__(self):
+        return f"{self.resident} ({self.platform})"

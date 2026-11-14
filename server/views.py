@@ -31,6 +31,7 @@ from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from .forms import (CommunityPostForm, ImpactForm, ProposalForm, StatusUpdateForm, TimelineFormSet)
+from . import alerts
 from .models import (CommunityPost, Feedback, Notification, Proposal, ResidentProfile, Source,
                      StaffMembership)
 
@@ -125,6 +126,10 @@ class ProposalFormMixin(EditorMixin):
         if not timeline.is_valid():
             return self.render_to_response(self.get_context_data(form=form, timeline=timeline))
         was_completed = bool(form.instance.pk) and Proposal.objects.filter(pk=form.instance.pk, status="completed").exists()
+        # What it looked like before, so text-message subscribers only hear about real changes.
+        before = (Proposal.objects.filter(pk=form.instance.pk)
+                  .values("status", "stage", "participation_open", "summary", "is_published").first()
+                  if form.instance.pk else None)
 
         p = form.save(commit=False)
         p.municipality = self.municipality
@@ -152,6 +157,14 @@ class ProposalFormMixin(EditorMixin):
             p.sources.add(src)
         Proposal.objects.filter(pk=p.pk).update(search=SearchVector("title", weight="A") + SearchVector("summary", weight="B"))
         self.object = p
+
+        # Text-message alerts go out after this transaction commits.
+        if before is None or not before["is_published"]:
+            alerts.proposal_event(p, "new")
+        else:
+            changed = sms.describe_changes(before, p)
+            if changed:
+                alerts.proposal_event(p, "changed", changed)
 
         # A newly completed proposal needs its community post: send staff straight to it.
         if p.status == "completed" and not was_completed and not hasattr(p, "community_post"):
@@ -213,6 +226,7 @@ class StatusUpdateCreateView(EditorMixin, View):
             upd.proposal, upd.author = p, request.user
             upd.save()
             notify_followers(p, Notification.Kind.UPDATE, update=upd)
+            alerts.proposal_event(p, "update", f"{upd.title}: {upd.summary}", update=upd)
             messages.success(request, "Update posted to residents who follow this proposal.")
         else:
             messages.error(request, "Add a title and a summary for the update.")
@@ -231,6 +245,7 @@ class ImpactCreateView(EditorMixin, View):
             imp.proposal, imp.author = p, request.user
             imp.save()
             notify_followers(p, Notification.Kind.IMPACT, impact=imp)
+            alerts.proposal_event(p, "impact", f"New {imp.get_kind_display().lower()} impact: {imp.text}", impact=imp)
             messages.success(request, "Impact added. Residents see it in the Impacts tab.")
         else:
             messages.error(request, "Choose a type and describe what happened.")

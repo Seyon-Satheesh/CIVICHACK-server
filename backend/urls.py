@@ -17,8 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from server import sms_views
+
 urlpatterns = [
     path("api/", include("server.api_urls")),   # resident API for the Flutter app
+    path("sms/twilio/", sms_views.incoming_sms, name="sms_incoming"),        # Twilio: incoming texts
+    path("sms/twilio/status/", sms_views.sms_status, name="sms_status"),     # Twilio: delivery status
     path("", include("server.urls")),   # admin console at the site root (no leading slash)
     path("admin/", admin.site.urls),
 ]

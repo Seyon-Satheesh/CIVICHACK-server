@@ -4,3 +4,5 @@ python-decouple>=3.8
 gunicorn>=22
 psycopg2-binary>=2.9
 dj-database-url>=2.1
+twilio>=9.0
+firebase-admin>=6.5

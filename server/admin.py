@@ -13,7 +13,7 @@ class MunicipalityAdmin(GISModelAdmin):
 
 @admin.register(models.Neighbourhood)
 class NeighbourhoodAdmin(GISModelAdmin):
-    list_display = ("name", "municipality", "ward")
+    list_display = ("name", "municipality", "ward", "postal_fsas")
     list_filter = ("municipality",)
 
 
@@ -69,3 +69,37 @@ for m in (models.StatusUpdate, models.Impact, models.CommunityPost, models.Reser
           models.ReserveFundStatement, models.ProjectAllocation, models.Kiosk, models.ResidentProfile,
           models.Notification):
     admin.site.register(m)
+
+
+class SmsMessageInline(admin.TabularInline):
+    model = models.SmsMessage
+    extra = 0
+    fields = ("created_at", "direction", "body", "proposal", "status", "error")
+    readonly_fields = fields
+    can_delete = False
+    ordering = ("-created_at",)
+
+
+@admin.register(models.SmsSubscriber)
+class SmsSubscriberAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "postal_fsa", "area", "step", "is_active", "signed_up_at")
+    list_filter = ("municipality", "is_active", "step", "area", "interests")
+    search_fields = ("postal_fsa",)
+    filter_horizontal = ("interests",)
+    readonly_fields = ("signed_up_at", "opted_out_at", "created_at", "updated_at")
+    inlines = [SmsMessageInline]
+
+
+@admin.register(models.SmsMessage)
+class SmsMessageAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "subscriber", "direction", "proposal", "status")
+    list_filter = ("direction", "status")
+    search_fields = ("body", "twilio_sid")
+    readonly_fields = ("subscriber", "direction", "body", "proposal", "twilio_sid", "status", "error", "created_at")
+
+
+@admin.register(models.DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ("resident", "platform", "is_active", "updated_at")
+    list_filter = ("platform", "is_active")
+    readonly_fields = ("token", "created_at", "updated_at")

@@ -19,4 +19,6 @@ urlpatterns = [
     path("community/", api.community, name="community"),
     path("notifications/", api.notifications, name="notifications"),
     path("notifications/read/", api.notifications_read, name="notifications_read"),
+    path("devices/", api.device_register, name="device_register"),
+    path("devices/remove/", api.device_unregister, name="device_unregister"),
 ]
