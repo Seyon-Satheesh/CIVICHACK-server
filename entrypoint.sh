@@ -13,7 +13,7 @@ do
 done
 
 
-gunicorn --bind :8000 --workers 2 lamppost_api.wsgi
+gunicorn --bind :8000 --workers 2 backend.wsgi
 
 # entrypoint.sh
 # Source: https://fmacedo.com/posts/coolify-your-django-project/
