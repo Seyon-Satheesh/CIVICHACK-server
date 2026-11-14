@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',   # must come right after SecurityMiddleware
+    'backend.cors_middleware.ApiCorsMiddleware',    # lets the Flutter web build call /api/
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -148,6 +149,9 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+
+# Origins allowed to call /api/ from a browser (Flutter web). Mobile apps don't need this.
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='*', cast=lambda x: [i.strip() for i in x.split(',')])
 
 # Sign-in for the admin console
 LOGIN_URL = "admin_console:login"
