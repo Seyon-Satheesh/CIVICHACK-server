@@ -1,0 +1,54 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin Console{% endblock %} · CivicSpeak</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'admin_console/admin.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  {% block header %}
+  <header class="topbar">
+    <div class="wrap hdr">
+      <div class="row gap-lg">
+        <a class="logo" href="{% url 'admin_console:proposal_list' %}">
+          <svg width="20" height="26" viewBox="0 0 24 32" aria-hidden="true"><path d="M12 0C5.4 0 0 5.3 0 11.9 0 20.8 12 32 12 32s12-11.2 12-20.1C24 5.3 18.6 0 12 0Z" fill="#E5211F"/><circle cx="12" cy="11.5" r="4.4" fill="#fff"/></svg>
+          CivicSpeak <small>Admin Console</small>
+        </a>
+        <nav class="row gap-sm" aria-label="Admin sections">
+          {% with section=request.resolver_match.url_name %}
+          <a class="btn sm {% if section == 'community_list' or section == 'post_create' or section == 'post_edit' or section == 'post_delete' %}secondary{% else %}primary{% endif %}"
+             href="{% url 'admin_console:proposal_list' %}">Proposals</a>
+          <a class="btn sm {% if section == 'community_list' or section == 'post_create' or section == 'post_edit' or section == 'post_delete' %}primary{% else %}secondary{% endif %}"
+             href="{% url 'admin_console:community_list' %}">Community</a>
+          {% endwith %}
+        </nav>
+      </div>
+      {% if request.user.is_authenticated %}
+      <div class="row gap-sm">
+        <span class="muted small">{{ request.user.get_full_name|default:request.user.username }}{% if request.user.staff %} · {{ request.user.staff.municipality.name }} · {{ request.user.staff.get_role_display }}{% endif %}</span>
+        <form method="post" action="{% url 'admin_console:logout' %}">{% csrf_token %}
+          <button class="avatar" type="submit" title="Sign out" aria-label="Sign out">{{ request.user.username|slice:":2"|upper }}</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </header>
+  {% endblock %}
+
+  {% if messages %}
+  <div class="wrap messages" role="status">
+    {% for message in messages %}<div class="msg {{ message.tags }}">{{ message }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <main id="main" class="{% block main_class %}wrap page{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

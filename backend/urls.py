@@ -18,6 +18,6 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
-    path("/", include("server.urls")),
+    path("", include("server.urls")),   # admin console at the site root (no leading slash)
     path("admin/", admin.site.urls),
 ]

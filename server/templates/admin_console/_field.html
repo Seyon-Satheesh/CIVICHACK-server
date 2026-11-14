@@ -1,0 +1,16 @@
+{# Renders one form field with its label, help text and errors. Usage: {% include "admin_console/_field.html" with field=form.title %} #}
+<div class="field{% if field.errors %} has-error{% endif %}{% if extra_class %} {{ extra_class }}{% endif %}">
+  {% if field.field.widget.input_type == "radio" or field.field.widget.input_type == "checkbox" and field.field.widget.allow_multiple_selected %}
+    <fieldset>
+      <legend class="label">{{ field.label }}</legend>
+      <div class="opts">{{ field }}</div>
+    </fieldset>
+  {% elif field.field.widget.input_type == "checkbox" %}
+    <label class="check">{{ field }} {{ field.label }}</label>
+  {% else %}
+    <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {{ field }}
+  {% endif %}
+  {% if field.help_text %}<p class="help" id="{{ field.id_for_label }}_help">{{ field.help_text }}</p>{% endif %}
+  {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+</div>

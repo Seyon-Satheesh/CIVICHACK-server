@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-siqce7e*%*426p$)2hxgk0u-b11vht*fiz_mj+6z4=tbnn7la3') 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
 # ALLOWED_HOSTS = []
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda x: [i.strip() for i in x.split(',')])
@@ -44,17 +44,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',        # GeoDjango (map pins, PostGIS)
+    'django.contrib.postgres',   # ArrayField, full-text search
+    'server',                    # CivicSpeak app
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',   # must come right after SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'backend.error_reporting_middleware.ProcessExceptionMiddleware',
 ]
 
@@ -92,13 +95,17 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 #     )
 # }
 
+# CivicSpeak uses PostGIS (map locations) and Postgres-only fields, so SQLite will not work.
+# DATABASE_URL looks like: postgres://USER:PASSWORD@HOST:5432/DBNAME  (Coolify gives you this)
 DATABASES = {
-    "default": dj_database_url.config(
-        default=config("DATABASE_URL", f"sqlite:///{BASE_DIR}/db.sqlite3"),
+    "default": dj_database_url.parse(
+        config("DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/civicspeak"),
         conn_max_age=600,
         ssl_require=False,
     ),
 }
+# Force the PostGIS backend even when the URL starts with postgres:// or postgresql://
+DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 
 
 # Password validation
@@ -123,9 +130,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en-ca'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Toronto'
 
 USE_I18N = True
 
@@ -137,6 +144,29 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+
+# Sign-in for the admin console
+LOGIN_URL = "admin_console:login"
+LOGIN_REDIRECT_URL = "admin_console:proposal_list"
+LOGOUT_REDIRECT_URL = "admin_console:login"
+
+# Coolify serves the app behind a proxy that handles HTTPS
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+# Log errors to the container output so they show in Coolify's logs
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {"django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False}},
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

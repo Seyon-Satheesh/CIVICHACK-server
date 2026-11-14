@@ -1,0 +1,16 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Delete post{% endblock %}
+{% block main_class %}wrap page narrow{% endblock %}
+
+{% block content %}
+<section class="sec">
+  <h1>Delete this community post?</h1>
+  <p><strong>{{ object.title }}</strong></p>
+  <p class="sub">Residents will no longer see it in the Community tab. The proposal itself is not affected.</p>
+  <form method="post" class="actions">
+    {% csrf_token %}
+    <a class="btn secondary" href="{% url 'admin_console:community_list' %}">Cancel</a>
+    <button class="btn danger" type="submit">Delete post</button>
+  </form>
+</section>
+{% endblock %}

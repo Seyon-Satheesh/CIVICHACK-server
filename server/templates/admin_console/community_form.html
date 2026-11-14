@@ -1,0 +1,45 @@
+{% extends "admin_console/base.html" %}
+{% block title %}{% if object %}Edit community post{% else %}New community post{% endif %}{% endblock %}
+{% block main_class %}wrap page narrow{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back" href="{% url 'admin_console:community_list' %}">← Back to community</a>
+    <h1>{% if object %}Edit community post{% else %}New community post{% endif %}</h1>
+    <p class="sub">For <strong>{{ proposal.title }}</strong>. {{ feedback_total }} resident{{ feedback_total|pluralize }} shared feedback. Celebrate what neighbours did together, and stay factual.</p>
+  </div>
+</div>
+
+{% if form.non_field_errors %}<div class="msg error" role="alert">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="sec">
+    {% include "admin_console/_field.html" with field=form.title %}
+    {% include "admin_console/_field.html" with field=form.community_did_text %}
+    {% include "admin_console/_field.html" with field=form.what_changed_text %}
+    {% include "admin_console/_field.html" with field=form.thanks %}
+  </section>
+
+  {% if resident_ideas %}
+  <section class="sec" aria-labelledby="h-ideas">
+    <h2 id="h-ideas">Resident ideas to draw from</h2>
+    <p class="sub">Tick any comments to feature them in the post. Names are never shown.</p>
+    <div class="field">
+      <div class="ideas">
+        {% for choice in form.highlighted_feedback %}
+        <label class="idea">{{ choice.tag }} <span>{{ choice.choice_label }}</span></label>
+        {% endfor %}
+      </div>
+      {% for error in form.highlighted_feedback.errors %}<p class="error">{{ error }}</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="actions">
+    <a class="btn secondary" href="{% url 'admin_console:community_list' %}">Cancel</a>
+    <button class="btn primary" type="submit">{% if object %}Save changes{% else %}Publish post{% endif %}</button>
+  </div>
+</form>
+{% endblock %}

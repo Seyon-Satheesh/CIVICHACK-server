@@ -6,9 +6,14 @@ FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y \
+# libpq for Postgres, plus GDAL/GEOS/PROJ which GeoDjango needs for map locations
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
+    binutils \
+    gdal-bin \
+    libgdal-dev \
+    libproj-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /code
@@ -27,9 +32,13 @@ RUN pip install -r requirements.txt
 
 COPY . /code
 
-RUN python manage.py collectstatic --noinput
+# collectstatic does not need the database
+RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
 
 RUN chmod +x /code/entrypoint.sh
+
+EXPOSE 8000
+CMD ["/code/entrypoint.sh"]
 
 
 
@@ -43,7 +52,8 @@ RUN chmod +x /code/entrypoint.sh
 # RUN pip install --no-cache-dir -r requirements.txt
 
 # COPY . .
-# RUN python manage.py collectstatic --noinput
+# # collectstatic does not need the database
+RUN SECRET_KEY=build-only python manage.py collectstatic --noinput
 
 # EXPOSE 8000
 # CMD ["sh", "-c", "python manage.py migrate && gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 3"]

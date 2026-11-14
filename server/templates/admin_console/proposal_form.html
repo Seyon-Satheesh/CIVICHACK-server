@@ -1,0 +1,223 @@
+{% extends "admin_console/base.html" %}
+{% load static %}
+{% block title %}{% if object %}Edit proposal{% else %}Add proposal{% endif %}{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{% endblock %}
+{% block main_class %}wrap page narrow{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back" href="{% url 'admin_console:proposal_list' %}{% if object %}?tab={{ object.status }}{% endif %}">← Back to proposals</a>
+    <h1>{% if object %}Edit proposal{% else %}Add proposal{% endif %}</h1>
+    <p class="sub">Residents see this in plain language. Keep it short, neutral and linked to sources.</p>
+  </div>
+</div>
+
+{% if form.non_field_errors %}<div class="msg error" role="alert">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate {% if not can_edit %}inert aria-disabled="true" class="readonly"{% endif %}>
+  {% csrf_token %}
+  {{ form.latitude }}{{ form.longitude }}
+
+  <section class="sec" aria-labelledby="h-src">
+    <h2 id="h-src">Source documents</h2>
+    <p class="sub">Link the staff report, notice or decision this proposal is based on. Every claim residents see should trace back to a source.</p>
+    <label class="drop" for="{{ form.source_files.id_for_label }}">
+      <strong>Drag and drop files, or browse</strong>
+      <span class="small muted" data-filenames>PDF, DOCX or images</span>
+      {{ form.source_files }}
+    </label>
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.source_title %}
+      {% include "admin_console/_field.html" with field=form.source_url %}
+      {% include "admin_console/_field.html" with field=form.source_kind %}
+    </div>
+    {% if object and object.sources.exists %}
+    <ul class="plain small">{% for s in object.sources.all %}<li><b>{{ s.get_kind_display }}:</b> <a href="{{ s.url }}" target="_blank" rel="noopener">{{ s.title }}</a>{% if s.published_on %} ({{ s.published_on }}){% endif %}</li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+
+  <section class="sec" aria-labelledby="h-details">
+    <h2 id="h-details">Proposal details</h2>
+    {% include "admin_console/_field.html" with field=form.title %}
+    {% include "admin_console/_field.html" with field=form.summary %}
+    {% include "admin_console/_field.html" with field=form.changes %}
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.pros %}
+      {% include "admin_console/_field.html" with field=form.cons %}
+    </div>
+    <p class="help">Keep pros and cons balanced and neutral, and base each one on the staff report, application or public comments.</p>
+    {% include "admin_console/_field.html" with field=form.affected %}
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.stage %}
+      {% include "admin_console/_field.html" with field=form.status %}
+    </div>
+    {% include "admin_console/_field.html" with field=form.is_illustrative %}
+  </section>
+
+  <section class="sec" aria-labelledby="h-loc">
+    <h2 id="h-loc">Location</h2>
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.address %}
+      {% include "admin_console/_field.html" with field=form.neighbourhood %}
+      {% include "admin_console/_field.html" with field=form.impact_radius_km %}
+    </div>
+    <div class="field">
+      <span class="label" id="map-label">Place it on the map</span>
+      <div id="place-map" class="placemap" role="application" aria-labelledby="map-label" aria-describedby="map-hint"
+           data-lat="{{ form.latitude.value|default_if_none:'' }}" data-lng="{{ form.longitude.value|default_if_none:'' }}"
+           data-default-lat="43.6532" data-default-lng="-79.3832"></div>
+      <p class="help" id="map-hint">Click the map to place the pin. The shaded circle shows the radius of impact.</p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-cat">
+    <h2 id="h-cat">Categories</h2>
+    <p class="sub">Residents who follow these topics are notified.</p>
+    {% include "admin_console/_field.html" with field=form.categories extra_class="cats" %}
+  </section>
+
+  <section class="sec" aria-labelledby="h-cost">
+    <h2 id="h-cost">Cost and funding</h2>
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.cost_estimate %}
+      {% include "admin_console/_field.html" with field=form.cost_note %}
+      {% include "admin_console/_field.html" with field=form.expected_timing %}
+      {% include "admin_console/_field.html" with field=form.budget_line %}
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-part">
+    <h2 id="h-part">Resident participation</h2>
+    {% include "admin_console/_field.html" with field=form.participation_open %}
+    {% include "admin_console/_field.html" with field=form.actions %}
+    <div class="two">
+      {% include "admin_console/_field.html" with field=form.participation_url %}
+      {% include "admin_console/_field.html" with field=form.participation_deadline %}
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="h-steps">
+    <h2 id="h-steps">Process steps</h2>
+    <p class="sub">Shown in the Process tab. Keep staff, committee and council steps separate. Leave the date empty if it isn't set.</p>
+    {{ timeline.management_form }}
+    {% for err in timeline.non_form_errors %}<p class="error">{{ err }}</p>{% endfor %}
+    <div class="steps">
+      {% for f in timeline %}
+      <fieldset class="step">
+        <legend class="small muted">Step {{ forloop.counter }}</legend>
+        {{ f.id }}
+        <div class="step-grid">
+          {% include "admin_console/_field.html" with field=f.order %}
+          {% include "admin_console/_field.html" with field=f.label %}
+          {% include "admin_console/_field.html" with field=f.level %}
+          {% include "admin_console/_field.html" with field=f.state %}
+          {% include "admin_console/_field.html" with field=f.date %}
+          {% include "admin_console/_field.html" with field=f.note %}
+        </div>
+        <div class="row gap-lg">
+          {% include "admin_console/_field.html" with field=f.date_confirmed %}
+          {% include "admin_console/_field.html" with field=f.residents_can_participate %}
+          {% if f.instance.pk %}{% include "admin_console/_field.html" with field=f.DELETE %}{% endif %}
+        </div>
+      </fieldset>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if can_edit %}
+  <div class="actions">
+    <a class="btn secondary" href="{% url 'admin_console:proposal_list' %}">Cancel</a>
+    <button class="btn primary" type="submit">{% if object %}Save changes{% else %}Save proposal{% endif %}</button>
+  </div>
+  {% endif %}
+</form>
+
+{% if object %}
+<section class="sec" aria-labelledby="h-upd">
+  <h2 id="h-upd">Status updates</h2>
+  <p class="sub">Updates appear inside the proposal summary and notify residents who follow it.</p>
+  {% if can_edit %}
+  <form method="post" action="{% url 'admin_console:update_create' object.pk %}" class="panel">
+    {% csrf_token %}
+    <div class="two">
+      <div>
+        {% include "admin_console/_field.html" with field=update_form.title %}
+        {% include "admin_console/_field.html" with field=update_form.importance %}
+      </div>
+      {% include "admin_console/_field.html" with field=update_form.summary %}
+    </div>
+    <button class="btn sm primary" type="submit">Post update</button>
+  </form>
+  {% endif %}
+  {% for u in updates %}
+  <article class="item">
+    <div class="row between"><strong>{{ u.title }}</strong><span class="stage">{{ u.get_importance_display }}</span></div>
+    <span class="small muted">{{ u.created_at|date:"M j, Y" }}{% if u.author %} · {{ u.author.get_full_name|default:u.author.username }}{% endif %}</span>
+    <p>{{ u.summary }}</p>
+  </article>
+  {% empty %}<p class="muted small">No updates yet.</p>{% endfor %}
+</section>
+
+{% if impact_form %}
+<section class="sec" aria-labelledby="h-imp">
+  <h2 id="h-imp">Impacts since completion</h2>
+  <p class="sub">Residents see these in the Impacts tab. Add new ones as information comes in.</p>
+  {% if can_edit %}
+  <form method="post" action="{% url 'admin_console:impact_create' object.pk %}" class="panel">
+    {% csrf_token %}
+    <div class="two">
+      <div>
+        {% include "admin_console/_field.html" with field=impact_form.kind %}
+        {% include "admin_console/_field.html" with field=impact_form.observed_on %}
+      </div>
+      {% include "admin_console/_field.html" with field=impact_form.text %}
+    </div>
+    <button class="btn sm primary" type="submit">Add impact</button>
+  </form>
+  {% endif %}
+  {% for i in impacts %}
+  <article class="item">
+    <div class="row between"><span class="tag {{ i.kind }}">{{ i.get_kind_display }}</span><span class="small muted">{{ i.observed_on|date:"M j, Y" }}</span></div>
+    <p>{{ i.text }}</p>
+  </article>
+  {% empty %}<p class="muted small">No impacts recorded yet.</p>{% endfor %}
+</section>
+{% endif %}
+
+<section class="sec" id="feedback" aria-labelledby="h-fb">
+  <h2 id="h-fb">Resident feedback <span class="pill">Staff only</span></h2>
+  <div class="bars">
+    <div class="bar-row"><span>Support</span><div class="track"><div class="fill support" style="width: {{ feedback_pct.support }}%"></div></div><span>{{ feedback_pct.support }}%</span></div>
+    <div class="bar-row"><span>Neutral</span><div class="track"><div class="fill neutral" style="width: {{ feedback_pct.neutral }}%"></div></div><span>{{ feedback_pct.neutral }}%</span></div>
+    <div class="bar-row"><span>Oppose</span><div class="track"><div class="fill oppose" style="width: {{ feedback_pct.oppose }}%"></div></div><span>{{ feedback_pct.oppose }}%</span></div>
+  </div>
+  <p class="small muted">{{ feedback_total }} response{{ feedback_total|pluralize }}. {{ feedback_note }}</p>
+
+  {% for f in feedback_comments %}
+  <article class="item{% if f.is_hidden %} hidden-item{% endif %}">
+    <div class="row between">
+      <strong>{{ f.get_choice_display }}</strong>
+      <span class="small muted">{% if f.resident %}{{ f.resident.user.username }}{% elif f.kiosk %}Anonymous · {{ f.kiosk.site_name }}{% else %}Anonymous{% endif %} · {{ f.created_at|date:"M j, Y g:i a" }}</span>
+    </div>
+    <p>{{ f.comment }}</p>
+    <div class="row gap-xs">
+      <form method="post" action="{% url 'admin_console:feedback_toggle' f.pk 'helpful' %}">{% csrf_token %}
+        <button class="btn sm secondary" type="submit" aria-pressed="{{ f.marked_helpful|yesno:'true,false' }}">{% if f.marked_helpful %}✓ Marked helpful{% else %}Mark helpful{% endif %}</button></form>
+      <form method="post" action="{% url 'admin_console:feedback_toggle' f.pk 'used' %}">{% csrf_token %}
+        <button class="btn sm secondary" type="submit" aria-pressed="{{ f.used_in_decision|yesno:'true,false' }}">{% if f.used_in_decision %}✓ Used in decision{% else %}Used in decision{% endif %}</button></form>
+      <form method="post" action="{% url 'admin_console:feedback_toggle' f.pk 'hide' %}">{% csrf_token %}
+        <button class="btn sm secondary" type="submit" aria-pressed="{{ f.is_hidden|yesno:'true,false' }}">{% if f.is_hidden %}Unhide{% else %}Hide{% endif %}</button></form>
+    </div>
+  </article>
+  {% empty %}<p class="muted small">No written comments yet.</p>{% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{% static 'admin_console/admin.js' %}"></script>
+{% endblock %}

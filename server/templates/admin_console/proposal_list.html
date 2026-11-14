@@ -1,0 +1,75 @@
+{% extends "admin_console/base.html" %}
+{% block title %}Proposals{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Proposals</h1>
+    <p class="sub">Publish municipal decisions and keep residents updated as they move forward.</p>
+  </div>
+  {% if can_edit %}
+  <a class="btn primary" href="{% url 'admin_console:proposal_create' %}">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    New proposal
+  </a>
+  {% endif %}
+</div>
+
+{% if completed_without_post %}
+<section class="box notice" aria-labelledby="missing-h">
+  <h2 id="missing-h">Completed proposals without a community post</h2>
+  <ul class="plain">
+    {% for p in completed_without_post %}
+    <li class="row between"><span>{{ p.title }}</span>
+      {% if can_edit %}<a class="btn sm primary" href="{% url 'admin_console:post_create' p.pk %}">Write post</a>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="box">
+  <div class="tabbar">
+    <nav class="tabs" aria-label="Proposal status">
+      {% for status, label, count in tabs %}
+      <a href="?tab={{ status }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}"
+         {% if status == active_tab %}aria-current="page"{% endif %}>{{ label }}<span class="count">{{ count }}</span></a>
+      {% endfor %}
+    </nav>
+    <form method="get" class="search" role="search">
+      <input type="hidden" name="tab" value="{{ active_tab }}">
+      <label class="sr-only" for="q">Search proposals</label>
+      <input type="search" id="q" name="q" value="{{ request.GET.q }}" placeholder="Search proposals">
+    </form>
+  </div>
+
+  <div class="grid">
+    {% for p in proposals %}
+    <article class="card">
+      <div class="row between">
+        <span class="stage">{{ p.get_stage_display }}</span>
+        {% if p.is_illustrative %}<span class="chip dashed">Illustrative</span>{% endif %}
+      </div>
+      <h2>{{ p.title }}</h2>
+      <p class="muted">{{ p.summary|truncatewords:28 }}</p>
+      <p class="small">{% if p.neighbourhood %}{{ p.neighbourhood.name }}{% else %}City-wide{% endif %}{% if p.address %} · {{ p.address }}{% endif %}{% if p.impact_radius_km %} · {{ p.impact_radius_km }} km radius{% endif %}</p>
+      <div class="row wrap gap-xs">{% for c in p.categories.all %}<span class="chip">{{ c.name }}</span>{% endfor %}</div>
+      <p class="small muted">Feedback: {{ p.feedback_total }} response{{ p.feedback_total|pluralize }}{% if p.comment_total %} · {{ p.comment_total }} with comments{% endif %}</p>
+      <div class="card-foot">
+        <span class="small muted">{% if p.participation_open %}Input open{% else %}Input closed{% endif %}</span>
+        <a class="btn sm secondary" href="{% url 'admin_console:proposal_edit' p.pk %}">{% if can_edit %}Edit{% else %}View{% endif %}</a>
+      </div>
+    </article>
+    {% empty %}
+    <p class="muted empty">{% if request.GET.q %}No proposals match "{{ request.GET.q }}".{% else %}No proposals in this tab.{% endif %}</p>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <nav class="pager" aria-label="Pages">
+    {% if page_obj.has_previous %}<a class="btn sm secondary" href="?tab={{ active_tab }}&page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}">Previous</a>{% endif %}
+    <span class="small muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a class="btn sm secondary" href="?tab={{ active_tab }}&page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q|urlencode }}{% endif %}">Next</a>{% endif %}
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}
